@@ -67,6 +67,9 @@ class Agent(CaptureAgent):
   foodMap       = np.array([])
   defendFoodMap = np.array([])
 
+  #Index of team member defending
+  defense = None
+
   @classmethod
   def heat_map(cls, gameState, agent, arr, alpha):
     """
@@ -89,7 +92,7 @@ class Agent(CaptureAgent):
         except:
           pass
 
-    return heat_map
+    return heat_map/np.max(heat_map)
 
 
   @staticmethod
@@ -146,7 +149,6 @@ class Agent(CaptureAgent):
     if Agent.moves.size == 0:
       Agent.moves   = Agent.neighbor_sum(gameState, {})
 
-
     #Moves heat map
     if Agent.moveMap.size == 0:
       Agent.moveMap  = Agent.heat_map(gameState, self,
@@ -156,7 +158,7 @@ class Agent(CaptureAgent):
     self.updateFoodMap(gameState)
 
     # import matplotlib.pyplot as plt 
-    # plt.imshow(Agent.defendFoodMap.T)
+    # plt.imshow(sM.T)
     # plt.colorbar()
     # plt.show()
 
@@ -181,15 +183,35 @@ class Agent(CaptureAgent):
     State matrix: weighted sum of value per position
     in grid.
     """
+
+    #Movement heat map
+    sM = 0.1*Agent.moveMap
+
+    #Food (defense/offense)
     self.updateFoodMap(gameState)
+    if Agent.defense == None or Agent.defense==self.index:
+      sM += Agent.defendFoodMap
+      Agent.defense = self.index
+    else:
+      st = gameState.getAgentState(self.index)
+      if not st.numCarrying:
+        sM += Agent.foodMap
+      else:
+        sM += Agent.defendFoodMap
 
-    food_left  = len(self.getFood(gameState).asList())
-    dfood_left = len(self.getFoodYouAreDefending(gameState).asList())
-    total_food = food_left + dfood_left
+    #Opponents positions
+    opponets  = self.getOpponents(gameState)
+    opp_pos   = np.zeros(sM.shape)
+    for pos, opp in [(gameState.getAgentPosition(opp),opp) for opp in opponets]:
+      if pos != None:
 
-    w0, w1, w2 = 0.0, float(food_left)/total_food, float(dfood_left)/total_food
+        st = gameState.getAgentState(opp)
+        if st.isPacman:
+          opp_pos[pos] = 1.0
+        else:
+          opp_pos[pos] = -1.0
 
-    sM = w0*Agent.moveMap + w1*Agent.foodMap + w2*Agent.defendFoodMap
+    sM += 10.0*opp_pos
 
     return sM
 
