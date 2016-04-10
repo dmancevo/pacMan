@@ -67,6 +67,9 @@ class Agent(CaptureAgent):
   foodMap       = np.array([])
   defendFoodMap = np.array([])
 
+  #Avoid oponents alpha
+  oppAlpha = 0.3
+
   #Index of team member defending
   defense = None
 
@@ -94,6 +97,19 @@ class Agent(CaptureAgent):
 
     return heat_map/np.max(heat_map)
 
+  @staticmethod
+  def inverse_weight(agent, pos, lst, width, height, alpha):
+    """
+    Weight for elements in lst by
+    distance to pos.
+    """
+    arr = np.zeros((width, height))
+    for p in lst:
+      dist = agent.getMazeDistance(pos, p)
+      arr[p] = 1.0/(1+alpha)**dist
+
+    return arr
+
 
   @staticmethod
   def neighbor_sum(gameState, dic):
@@ -112,7 +128,7 @@ class Agent(CaptureAgent):
         if not walls[i][(j-1)]: m+=dic.get((i,j-1), 1)
         arr[i,j] = m
 
-    return arr
+    return arr/np.max(arr)
 
   def registerInitialState(self, gameState):
     """
@@ -209,22 +225,23 @@ class Agent(CaptureAgent):
         if st.isPacman:
           opp_pos[pos] = 1.0
         else:
-          opp_pos[pos] = -1.0
+          lst = self.getFood(gameState).asList()
+          width, height = opp_pos.shape
+          opp_pos -= Agent.inverse_weight(self, pos, lst,
+           width, height, Agent.oppAlpha)
 
     sM += 10.0*opp_pos
 
     return sM
 
-
-  def nextShortest(self, gameState, pos):
+  def nextS(self, gameState, myPos, pos, actions):
     """
     Return action to shorten distance between
-    self and pos along shortest path.
+    myPos and pos
     """
-    myPos   = gameState.getAgentState(self.index).getPosition()
     myDist  = self.getMazeDistance(myPos, pos)
-    actions = gameState.getLegalActions(self.index)
 
+    #Vals
     vals = [('Stop',myDist)]
     for action in actions:
       successor = self.getSuccessor(gameState, action)
@@ -233,6 +250,21 @@ class Agent(CaptureAgent):
       vals.append((action,newDist))
 
     return min(vals,key=lambda x: x[1])[0]
+
+
+  def nextShortest(self, gameState, pos):
+    """
+    Return action to shorten distance between
+    self and pos along shortest path.
+    """
+
+    #My position
+    myPos   = gameState.getAgentState(self.index).getPosition()
+    actions = gameState.getLegalActions(self.index)
+
+    return self.nextS(gameState, myPos, pos, actions)
+
+    
 
   def getSuccessor(self, gameState, action):
     """
