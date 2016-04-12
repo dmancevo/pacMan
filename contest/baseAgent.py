@@ -24,7 +24,7 @@ from itertools import product
 #################
 
 def createTeam(firstIndex, secondIndex, isRed,
-               first = 'Agent', second = 'Agent'):
+               first = 'baseAgent', second = 'baseAgent'):
   """
   This function should return a list of two agents that will form the
   team, initialized using firstIndex and secondIndex as their agent
@@ -47,7 +47,7 @@ def createTeam(firstIndex, secondIndex, isRed,
 # Agents #
 ##########
 
-class Agent(CaptureAgent):
+class baseAgent(CaptureAgent):
   """
   Group 1's agent.
   """
@@ -97,15 +97,16 @@ class Agent(CaptureAgent):
     return heat_map/np.max(heat_map)
 
   @staticmethod
-  def inverse_weight(agent, pos, lst, width, height, alpha):
+  def inverse_weight(agent, P, lst, width, height, alpha):
     """
     Weight for elements in lst by
-    distance to pos.
+    distance to pos in P.
     """
     arr = np.zeros((width, height))
     for p in lst:
-      dist = agent.getMazeDistance(pos, p)
-      arr[p] = 1.0/(1+alpha)**dist
+        for pos in P:
+          dist = agent.getMazeDistance(pos, p)
+          arr[p] = 1.0/(1+alpha)**dist
 
     return arr
 
@@ -116,7 +117,7 @@ class Agent(CaptureAgent):
     Populates array with neighborhood sum based on dic.
     """
     walls = gameState.getWalls()
-    arr = np.zeros((Agent.width, Agent.height))
+    arr = np.zeros((baseAgent.width, baseAgent.height))
     for i in range(walls.width):
       for j in range(walls.height):
         if walls[i][j]: continue
@@ -155,27 +156,35 @@ class Agent(CaptureAgent):
     '''
 
     #Map width and height
-    if Agent.width == None:
+    if baseAgent.width == None:
       walls        = gameState.getWalls()
-      Agent.width  = walls.width
-      Agent.height = walls.height
+      baseAgent.width  = walls.width
+      baseAgent.height = walls.height
 
     #Pre-compute available moves
-    if Agent.moves.size == 0:
-      Agent.moves   = Agent.neighbor_sum(gameState, {})
+    if baseAgent.moves.size == 0:
+      baseAgent.moves   = baseAgent.neighbor_sum(gameState, {})
 
     #Moves heat map
-    if Agent.moveMap.size == 0:
-      Agent.moveMap  = Agent.heat_map(gameState, self,
-       Agent.moves, Agent.movesAlpha)
+    if baseAgent.moveMap.size == 0:
+      baseAgent.moveMap  = baseAgent.heat_map(gameState, self,
+       baseAgent.moves, baseAgent.movesAlpha)
 
     #Food maps
     self.updateFoodMap(gameState)
+
+    self.init()
 
     # import matplotlib.pyplot as plt
     # plt.imshow(sM.T)
     # plt.colorbar()
     # plt.save("heat_map",format="png")
+
+  def init(self):
+    """
+      Additional initialization here.
+    """
+    pass
 
   def chooseAction(self, gameState):
     """
@@ -195,19 +204,19 @@ class Agent(CaptureAgent):
     """
 
     #Movement heat map
-    sM = 0.1*Agent.moveMap
+    sM = 0.1*baseAgent.moveMap
 
     #Food (defense/offense)
     self.updateFoodMap(gameState)
-    if Agent.defense == None or Agent.defense==self.index:
-      sM += Agent.defendFoodMap
-      Agent.defense = self.index
+    if baseAgent.defense == None or baseAgent.defense==self.index:
+      sM += baseAgent.defendFoodMap
+      baseAgent.defense = self.index
     else:
       st = gameState.getAgentState(self.index)
       if not st.numCarrying:
-        sM += Agent.foodMap
+        sM += baseAgent.foodMap
       else:
-        sM += Agent.defendFoodMap
+        sM += baseAgent.defendFoodMap
 
     #Opponents positions
     opponets  = self.getOpponents(gameState)
@@ -221,8 +230,8 @@ class Agent(CaptureAgent):
         else:
           lst = self.getFood(gameState).asList()
           width, height = opp_pos.shape
-          opp_pos -= Agent.inverse_weight(self, pos, lst,
-           width, height, Agent.oppAlpha)
+          opp_pos -= baseAgent.inverse_weight(self, [pos], lst,
+           width, height, baseAgent.oppAlpha)
 
     sM += 10.0*opp_pos
 
@@ -281,10 +290,10 @@ class Agent(CaptureAgent):
     dfood = self.getFoodYouAreDefending(gameState)
 
     #Food map
-    Agent.foodMap  = Agent.heat_map(gameState, self,
-       food, Agent.foodAlpha)
+    baseAgent.foodMap  = baseAgent.heat_map(gameState, self,
+       food, baseAgent.foodAlpha)
 
     #Defend food map
-    Agent.defendFoodMap  = Agent.heat_map(gameState, self,
-       dfood, Agent.foodAlpha)
+    baseAgent.defendFoodMap  = baseAgent.heat_map(gameState, self,
+       dfood, baseAgent.foodAlpha)
 
