@@ -4,7 +4,7 @@
 # educational purposes provided that (1) you do not distribute or publish
 # solutions, (2) you retain this notice, and (3) you provide clear
 # attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
-# 
+#
 # Attribution Information: The Pacman AI projects were developed at UC Berkeley.
 # The core projects and autograders were primarily created by John DeNero
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
@@ -13,7 +13,6 @@
 
 
 from captureAgents import CaptureAgent
-import random, time, util
 from game import Directions
 import game
 from util import nearestPoint, matrixAsList
@@ -173,20 +172,15 @@ class Agent(CaptureAgent):
     #Food maps
     self.updateFoodMap(gameState)
 
-    # import matplotlib.pyplot as plt 
+    # import matplotlib.pyplot as plt
     # plt.imshow(sM.T)
     # plt.colorbar()
-    # plt.show()
+    # plt.save("heat_map",format="png")
 
   def chooseAction(self, gameState):
     """
-    Picks among actions randomly.
+    Choose action.
     """
-    actions = gameState.getLegalActions(self.index)
-
-    '''
-    You should change this in your own agent.
-    '''
 
     stateM  = self.stateMatrix(gameState)
     bestPos = np.unravel_index(np.argmax(stateM), stateM.shape)
@@ -264,7 +258,7 @@ class Agent(CaptureAgent):
 
     return self.nextS(gameState, myPos, pos, actions)
 
-    
+
 
   def getSuccessor(self, gameState, action):
     """
@@ -293,3 +287,4 @@ class Agent(CaptureAgent):
     #Defend food map
     Agent.defendFoodMap  = Agent.heat_map(gameState, self,
        dfood, Agent.foodAlpha)
+
