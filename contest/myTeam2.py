@@ -30,10 +30,9 @@ def createTeam(firstIndex, secondIndex, isRed,
   any extra arguments, so you should make sure that the default
   behavior is what you want for the nightly contest.
   """
-  enemyFilter = Filter()
-  return [DummyAgent(firstIndex, enemyFilter), DummyAgent(secondIndex, enemyFilter)]
+
   # The following line is an example only; feel free to change it.
-  #return [eval(first)(firstIndex), eval(second)(secondIndex)]
+  return [eval(first)(firstIndex), eval(second)(secondIndex)]
 
 ##########
 # Agents #
@@ -45,9 +44,6 @@ class DummyAgent(CaptureAgent):
   You should look at baselineTeam.py for more details about how to
   create an agent as this is the bare minimum.
   """
-  def __init__(self, index, enemyFilter):
-    CaptureAgent.__init__(self, index)
-    self.enemyFilter = enemyFilter
 
   def registerInitialState(self, gameState):
     """
@@ -73,15 +69,16 @@ class DummyAgent(CaptureAgent):
     '''
     Your initialization code goes here, if you need any.
     '''
-    self.enemyFilter.addInitialGameStateInfo(self.index, gameState)
+    Filter.addInitialGameStateInfo(self.index, gameState)
 
 
   def chooseAction(self, gameState):
     """
     Picks among actions randomly.
     """
-    self.enemyFilter.addNewInfo(self.index, gameState)
-    enemyPositions = self.enemyFilter.getBeliefStateProb()
+
+    Filter.addNewInfo(self.index, gameState)
+    enemyPositions = Filter.getBeliefStateProb()
     
     cells = []
     self.debugDraw(cells, [1, 1, 1], clear=True)
