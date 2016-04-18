@@ -68,7 +68,8 @@ class baseAgent(CaptureAgent):
   defendFoodMap = np.array([])
 
   #Avoid oponents alpha
-  oppAlpha = 0.3
+  opponents = None
+  oppAlpha  = 0.3
 
   #Index of team member defending
   defense = None
@@ -106,6 +107,7 @@ class baseAgent(CaptureAgent):
     arr = np.zeros((width, height))
     for p in lst:
         for pos in P:
+          pos = tuple(pos)
           dist = agent.getMazeDistance(pos, p)
           arr[p] = 1.0/(1+alpha)**dist
 
@@ -179,7 +181,7 @@ class baseAgent(CaptureAgent):
     # import matplotlib.pyplot as plt
     # plt.imshow(sM.T)
     # plt.colorbar()
-    # plt.save("heat_map",format="png")
+    # plt.save("../heat_map",format="png")
 
   def init(self, gameState):
     """
@@ -228,21 +230,23 @@ class baseAgent(CaptureAgent):
         sM += baseAgent.defendFoodMap
 
     #Opponents positions
-    opponets  = self.getOpponents(gameState)
-    opp_pos   = np.zeros(sM.shape)
-    for pos, opp in [(gameState.getAgentPosition(opp),opp) for opp in opponets]:
-      if pos != None:
-
-        st = gameState.getAgentState(opp)
-        if st.isPacman:
-          opp_pos[pos] = 1.0
-        else:
-          lst = self.getFood(gameState).asList()
-          width, height = opp_pos.shape
-          opp_pos -= baseAgent.inverse_weight(self, [pos], lst,
-           width, height, baseAgent.oppAlpha)
-
-    sM += 10.0*opp_pos
+    try:
+      baseAgent.opp_pos = Filter.getBeliefStateProb()
+    except ZeroDivisionError:
+      print "ZDE"
+    
+    for opp in baseAgent.opp_pos.keys():
+      
+      st = gameState.getAgentState(opp)
+      if st.isPacman:
+        sM += 10*baseAgent.opp_pos[opp]
+      else:
+        # sM -= 10*baseAgent.opp_pos[opp]
+        P = np.transpose(baseAgent.opp_pos[opp].nonzero())
+        lst = self.getFood(gameState).asList()
+        width, height = sM.shape
+        sM -= 10 * baseAgent.inverse_weight(self, P, lst,
+         width, height, baseAgent.oppAlpha)
 
     return sM
 
@@ -275,7 +279,6 @@ class baseAgent(CaptureAgent):
     actions = gameState.getLegalActions(self.index)
 
     return self.nextS(gameState, myPos, pos, actions)
-
 
 
   def getSuccessor(self, gameState, action):
