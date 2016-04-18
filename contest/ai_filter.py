@@ -31,6 +31,8 @@ class Filter(object):
             cls.prevPos = [None for i in range(cls.numOfAgents)]
             cls.currentPos = deepcopy(cls.startPositions)
 
+            cls.exactEnemyPositions = {i: None for i in cls.enemyTeam}
+
             #transition matrix
             cls.A = np.zeros((cls.width, cls.height, cls.width, cls.height), dtype=bool)
             for x1 in xrange(0, cls.width):
@@ -67,6 +69,7 @@ class Filter(object):
 
         for i in cls.enemyTeam:
             exactPos = False
+            cls.exactEnemyPositions[i] = None
 
             if i in deadEnemies:
                 cls._setExactPosition(i, cls.startPositions[i])
@@ -116,6 +119,12 @@ class Filter(object):
 
 
     @classmethod
+    def getExactEnemyPositions(cls):
+        '''returns dict with ememy agent ID as keys and tuple or None as value'''
+        return cls.exactEnemyPositions
+
+
+    @classmethod
     def _computeNewBeliefState(cls, enemyID):
         cls.currentBeliefState[enemyID] = np.tensordot(cls.currentBeliefState[enemyID], cls.A, 2)
 
@@ -124,6 +133,7 @@ class Filter(object):
     def _setExactPosition(cls, enemyID, pos):
         cls.currentBeliefState[enemyID] = np.zeros((cls.width, cls.height), dtype=bool)
         cls.currentBeliefState[enemyID][pos] = True
+        cls.exactEnemyPositions[enemyID] = pos
 
 
     @classmethod
