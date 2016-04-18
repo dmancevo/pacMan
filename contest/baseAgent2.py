@@ -109,9 +109,9 @@ class baseAgent(CaptureAgent):
         for pos in P:
           pos = tuple(pos)
           dist = agent.getMazeDistance(pos, p)
-          arr[p] = 1.0/(1+alpha)**dist
+          arr[p] += 1.0/(1+alpha)**dist
 
-    return arr
+    return arr/np.max(arr)
 
 
   @staticmethod
@@ -178,11 +178,6 @@ class baseAgent(CaptureAgent):
 
     self.init(gameState)
 
-    # import matplotlib.pyplot as plt
-    # plt.imshow(sM.T)
-    # plt.colorbar()
-    # plt.save("../heat_map",format="png")
-
   def init(self, gameState):
     """
       Additional initialization here.
@@ -204,6 +199,18 @@ class baseAgent(CaptureAgent):
     stateM  = self.stateMatrix(gameState)
     bestPos = np.unravel_index(np.argmax(stateM), stateM.shape)
     bestDir = self.nextShortest(gameState, bestPos)
+    
+    # import matplotlib.pyplot as plt
+    # r = np.random.uniform(0,1)
+    # if r < 0.02:
+    #   plt.imshow(stateM.T)
+    #   plt.colorbar()
+    #   if baseAgent.defense!=self.index:
+    #     plt.title("offense")
+    #   else:
+    #     plt.title("defence")
+    #   plt.savefig("../heat_map_{0}.png".format(r),format="png")
+    #   plt.close()
 
     return bestDir
 
@@ -239,13 +246,12 @@ class baseAgent(CaptureAgent):
       
       st = gameState.getAgentState(opp)
       if st.isPacman:
-        sM += 10*baseAgent.opp_pos[opp]
-      else:
-        # sM -= 10*baseAgent.opp_pos[opp]
+        sM += 3*baseAgent.opp_pos[opp]
+      elif baseAgent.defense!=self.index:
         P = np.transpose(baseAgent.opp_pos[opp].nonzero())
         lst = self.getFood(gameState).asList()
         width, height = sM.shape
-        sM -= 10 * baseAgent.inverse_weight(self, P, lst,
+        sM -= baseAgent.inverse_weight(self, P, lst,
          width, height, baseAgent.oppAlpha)
 
     return sM

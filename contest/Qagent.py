@@ -8,11 +8,10 @@ import numpy as np
 def createTeam(firstIndex, secondIndex, isRed,
                first = 'Agent', second = 'Agent'):
 
-  # The following line is an example only; feel free to change it.
   return [eval(first)(firstIndex), eval(second)(secondIndex)]
 
 
-class Agent(baseAgent):
+class Agent(baseAgent2):
 
     #Neural Net
     b1, b2 = np.random.normal(0,0.1,2)
@@ -58,9 +57,10 @@ class Agent(baseAgent):
         Choose action.
         """
 
+        Filter.addNewInfo(self.index, gameState)
         stateM  = self.stateMatrix(gameState)
         bestPos = np.unravel_index(np.argmax(stateM), stateM.shape)
         bestDir = self.nextShortest(gameState, bestPos)
-
+    
         return bestDir
 
