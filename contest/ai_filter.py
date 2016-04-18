@@ -32,12 +32,16 @@ class Filter(object):
             cls.currentPos = deepcopy(cls.startPositions)
 
             cls.exactEnemyPositions = {i: None for i in cls.enemyTeam}
+            
+            #default all-possible
+            cls.allPossibleState = np.zeros((cls.width, cls.height), dtype=bool)
 
             #transition matrix
             cls.A = np.zeros((cls.width, cls.height, cls.width, cls.height), dtype=bool)
             for x1 in xrange(0, cls.width):
                 for y1 in xrange(0, cls.height):
                     if not walls[x1][y1]:
+                        cls.allPossibleState[x1,y1] = True
                         for x2, y2 in Actions.getLegalNeighbors((x1, y1), walls):
                             cls.A[x1,y1,x2,y2] = True
 
@@ -58,6 +62,7 @@ class Filter(object):
                 beliefState = np.zeros((cls.width, cls.height), dtype=bool)
                 beliefState[cls.startPositions[enemy]] = True
                 cls.currentBeliefState[enemy] = beliefState
+
 
     @classmethod
     def addNewInfo(cls, agentID, gameState):
@@ -95,6 +100,9 @@ class Filter(object):
 
         cls.firstIter = False
 
+        cls._checkBeliefStateForNonZero()
+
+
     @classmethod
     def getBeliefStateBool(cls):
         '''returns dict with enemy ids as keys and np.array of bools as values'''
@@ -122,6 +130,16 @@ class Filter(object):
     def getExactEnemyPositions(cls):
         '''returns dict with ememy agent ID as keys and tuple or None as value'''
         return cls.exactEnemyPositions
+
+
+    @classmethod
+    def _checkBeliefStateForNonZero(cls):
+        for enemy in cls.enemyTeam:
+            nPossiblePos = np.sum(cls.currentBeliefState[enemy])
+            if nPossiblePos == 0:
+                print "Warning: something went terribly wrong in filtering, so I assumed all-possible state"
+                cls.currentBeliefState[enemy] = deepcopy(cls.allPossibleState)
+                cls._filterByFoodAndDistance(enemy)
 
 
     @classmethod
@@ -181,14 +199,18 @@ class Filter(object):
         
         deadEnemies = []
 
+        #check if previous teammate ate an enemy
         for enemy in cls.enemyTeam:
             if cls.prevPos[enemy] is not None and cls.prevPos[enemy] == cls.currentPos[prevTeammate]:
                 deadEnemies.append(enemy)
 
+        #check if previous enemy run into my goust and was eaten
         if prevEnemy not in deadEnemies:
             if cls.currentPos[prevEnemy] is None and cls.prevPos[prevEnemy] is not None:
                 for agent in cls.myTeam:
-                    if manhattanDistance(cls.prevPos[prevEnemy], cls.prevPos[agent]) <= 2:
+                    #check if my agent died
+                    myAgentDied = manhattanDistance(cls.prevPos[agent], cls.currentPos[agent]) > (0 if agent==agentID else 1)
+                    if not myAgentDied and manhattanDistance(cls.prevPos[prevEnemy], cls.prevPos[agent]) <= (1 if agent==agentID else 2):
                         deadEnemies.append(prevEnemy)
                         break
 
