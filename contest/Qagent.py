@@ -1,4 +1,5 @@
-from baseAgent import baseAgent
+from baseAgent2 import baseAgent
+from ai_filter import Filter
 import numpy as np
 
 #################
@@ -11,56 +12,133 @@ def createTeam(firstIndex, secondIndex, isRed,
   return [eval(first)(firstIndex), eval(second)(secondIndex)]
 
 
-class Agent(baseAgent2):
-
-    #Neural Net
-    b1, b2 = np.random.normal(0,0.1,2)
-
-    m, n = 10, 4
-    W = np.random.normal(0,0.1,m*n).reshape((m,n))
-
-    w = np.random.normal(0,0.1,n)
-
-    phi = lambda x: 1.0/(1+np.exp(-x))
-
-    @classmethod
-    def forward(cls, x):
-        """
-        Forward pass.
-        """
-        w, phi, W, b1, b2 = cls.w, cls.phi, cls.W, cls.b1, cls.b2
-        cls.x, cls.phiWx = x, phi(W.dot(x))
-        cls.fwd = w.dot(cls.phiWx+b1)+b2
-        return cls.fwd
-
-    @classmethod
-    def backward(cls, y, delta=0.01):
-        """
-        Backward pass and update.
-        """
-        fwd, y, x, phi = cls.fwd, cls.y, cls.x, cls.phi
-
-        #Update third layer
-        err = fwd-y
-        cls.b2 -= err
-        cls.w -= err*cls.phiWx
-
-        #Update middle layer
-        dfwd_dphi = phi*(1-phi)
-        cls.b1 -= err*dfwd_dphi
-        dWx_dW = np.outer(x,x)
-        cls.W -= err*dfwd_dphi*dWx_dx
-
-
-    def chooseAction(self, gameState):
-        """
-        Choose action.
-        """
-
-        Filter.addNewInfo(self.index, gameState)
-        stateM  = self.stateMatrix(gameState)
-        bestPos = np.unravel_index(np.argmax(stateM), stateM.shape)
-        bestDir = self.nextShortest(gameState, bestPos)
+class Agent(baseAgent):
+  
+  #Boundary
+  boundary = None
+  
+  #Direction encoding
+  enc = {
+    "Stop" : [0,0,0,0,1],
+    "North": [0,0,0,1,0],
+    "South": [0,0,1,0,0],
+    "East" : [0,1,0,0,0],
+    "West" : [1,0,0,0,0],
+    }
+  
+  #Neural Net
+  
+  def registerInitialState(self, gameState):
+    baseAgent.registerInitialState(self, gameState)
+    Filter.addInitialGameStateInfo(self.index, gameState)
     
-        return bestDir
-
+    #Map boundary
+    if not Agent.boundary:
+      walls = gameState.getWalls()
+      Agent.boundary = [(walls.width/2,i) for i in range(walls.height)]
+  
+  def chooseAction(self, gameState):
+    """
+    Choose action.
+    """
+  
+    #Update filter
+    Filter.addNewInfo(self.index, gameState)
+    
+    #Features
+    X = np.array([])
+    
+    #Closest food, boundary and capsules.
+    for f in [self.closestFood, self.closestDefenseFood,
+    self.closestBoundary, self.closestCapsule,
+    self.closestDefenseCapsule]:
+      
+      dist, direc = f(gameState)
+      X = np.hstack((X, np.array(Agent.enc[direc])*dist))
+      
+    #Closest Enemy.
+    ind, dist, direc = self.closestEnemy(gameState)
+    st = gameState.getAgentState(self.index)
+    opp_st = gameState.getAgentState(ind)
+    
+    if opp_st.isPacman and not st.scaredTimer:
+      X = np.hstack((X, np.array(Agent.enc[direc])*dist))
+    else:
+      X = np.hstack((X, np.array(Agent.enc[direc])/dist))
+      
+    #Number of food carrying.
+    X = np.hstack((X,np.array([st.numCarrying])))
+    
+    print X
+      
+    return "Stop"
+    
+    
+  def closest(self, gameState, M):
+    """
+    Return closest distance and direction
+    to closest element in M from current position.
+    """
+    if not M: return 0, "Stop"
+    myPos = gameState.getAgentState(self.index).getPosition()
+    distances  = [(pos,self.getDist(myPos, pos)) for pos in M]
+    pos, dist = min(distances,key=lambda x: x[1])
+    return dist, self.nextShortest(gameState, pos)
+  
+  def closestFood(self, gameState):
+    """
+    Return position of closest food.
+    """
+    food = self.getFood(gameState).asList()
+    return self.closest(gameState, food)
+    
+  def closestDefenseFood(self, gameState):
+    """
+    Return position of closest food
+    we are defending.
+    """
+    food = self.getFoodYouAreDefending(gameState).asList()
+    return self.closest(gameState, food)
+  
+  def closestBoundary(self, gameState):
+    """
+    Return position of closest boundary point.
+    """
+    return self.closest(gameState, Agent.boundary)
+  
+  def closestCapsule(self, gameState):
+    """
+    Return position of closest capsule.
+    """
+    capsules = self.getCapsules(gameState)
+    return self.closest(gameState, capsules)
+  
+  def closestDefenseCapsule(self, gameState):
+    """
+    Return position of closest capsule
+    we are defending.
+    """
+    capsules = self.getCapsulesYouAreDefending(gameState)
+    return self.closest(gameState, capsules)
+  
+  def closestEnemy(self, gameState):
+    """
+    Return position and index of closest enemy.
+    """
+    all_pos = Filter.getBeliefStateBool()
+    dist = float("inf")
+    for key in all_pos.keys():
+      opp_pos = []
+      width, height = all_pos[key].shape
+      for i in range(width):
+        for j in range(height):
+          if all_pos[key][i,j]:
+            opp_pos.append((i,j))
+            
+      new_ind = key
+      new_dist, new_direc = self.closest(gameState, opp_pos)
+      if new_dist < dist:
+        ind, dist, direc = new_ind, new_dist, new_direc
+        
+    return ind, dist, direc
+      
