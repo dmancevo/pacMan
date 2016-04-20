@@ -176,12 +176,6 @@ class baseAgent(CaptureAgent):
     #Food maps
     self.updateFoodMap(gameState)
 
-    self.init(gameState)
-
-  def init(self, gameState):
-    """
-      Additional initialization here.
-    """
     Filter.addInitialGameStateInfo(self.index, gameState)
 
   def chooseAction(self, gameState):
@@ -231,7 +225,8 @@ class baseAgent(CaptureAgent):
       baseAgent.defense = self.index
     else:
       st = gameState.getAgentState(self.index)
-      if not st.numCarrying:
+      opp_st = gameState.getAgentState(ind)
+      if opp_st.isPacman and not st.scaredTimer:
         sM += baseAgent.foodMap
       else:
         sM += baseAgent.defendFoodMap
@@ -261,14 +256,14 @@ class baseAgent(CaptureAgent):
     Return action to shorten distance between
     myPos and pos
     """
-    myDist  = self.getMazeDistance(myPos, pos)
+    myDist  = self.getDist(myPos, pos)
 
     #Vals
     vals = [('Stop',myDist)]
     for action in actions:
       successor = self.getSuccessor(gameState, action)
       newPos    = successor.getAgentState(self.index).getPosition()
-      newDist   = self.getMazeDistance(newPos, pos)
+      newDist   = self.getDist(newPos, pos)
       vals.append((action,newDist))
 
     return min(vals,key=lambda x: x[1])[0]
@@ -314,4 +309,13 @@ class baseAgent(CaptureAgent):
     #Defend food map
     baseAgent.defendFoodMap  = baseAgent.heat_map(gameState, self,
        dfood, baseAgent.foodAlpha)
-
+       
+  def getDist(self, pos1, pos2):
+    """
+    Get Maze Distance, handle positions not in maze
+    by returning inf
+    """
+    try:
+      return self.getMazeDistance(pos1, pos2)
+    except:
+      return float("inf")
