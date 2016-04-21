@@ -31,7 +31,7 @@ class Agent(baseAgent):
   #Neural Net
   
   @staticmethod
-  def addRow(X, a):
+  def addRow(X, a, firstMove):
     """
     Add sample row to database, features X, reward rw
     and Q(s,a,o) Qval)
@@ -40,8 +40,9 @@ class Agent(baseAgent):
     cur  = conn.cursor()
     try:
       
-      #Update latest row
-      cur.execute("update Qtable set o=?",(a,))
+      if firstMove:
+        #Update latest row
+        cur.execute("update Qtable set o=? order by rowid desc limit 1",(a,))
       
       #X
       X_pkl = pkl.dumps(X)
@@ -49,7 +50,7 @@ class Agent(baseAgent):
       
     except sqlite3.OperationalError:
       cur.execute("create table Qtable X text, a text, o text, rw real, Qval real, target real")
-      Agent.addRow(X,a)
+      Agent.addRow(X,a,firstMove)
     finally:
       conn.commit()
       conn.close()
