@@ -1,6 +1,8 @@
 from baseAgent2 import baseAgent
 from ai_filter import Filter
 import numpy as np
+import sqlite3
+import pickle as pkl
 
 #################
 # Team creation #
@@ -27,6 +29,30 @@ class Agent(baseAgent):
     }
   
   #Neural Net
+  
+  @staticmethod
+  def addRow(X, a):
+    """
+    Add sample row to database, features X, reward rw
+    and Q(s,a,o) Qval)
+    """
+    conn = sqlite.connect("Qbase.db")
+    cur  = conn.cursor()
+    try:
+      
+      #Update latest row
+      cur.execute("update Qtable set o=?",(a,))
+      
+      #X
+      X_pkl = pkl.dumps(X)
+      cur.execute("insert into Qtable values (?,?,?,?,?,?)",(X_pkl,a,"None","None","None"))
+      
+    except sqlite3.OperationalError:
+      cur.execute("create table Qtable X text, a text, o text, rw real, Qval real, target real")
+      Agent.addRow(X,a)
+    finally:
+      conn.commit()
+      conn.close()
   
   def registerInitialState(self, gameState):
     baseAgent.registerInitialState(self, gameState)
