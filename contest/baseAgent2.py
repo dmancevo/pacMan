@@ -40,9 +40,10 @@ def createTeam(firstIndex, secondIndex, isRed,
   any extra arguments, so you should make sure that the default
   behavior is what you want for the nightly contest.
   """
-
+  enemyFilter = Filter()
   # The following line is an example only; feel free to change it.
-  return [eval(first)(firstIndex), eval(second)(secondIndex)]
+  #return [eval(first)(firstIndex), eval(second)(secondIndex)]
+  return [baseAgent(firstIndex, enemyFilter), baseAgent(secondIndex, enemyFilter)]
 
 ##########
 # Agents #
@@ -52,6 +53,10 @@ class baseAgent(CaptureAgent):
   """
   Group 1's agent.
   """
+
+  def __init__(self, index, enemyFilter):
+    CaptureAgent.__init__(self, index)
+    self.enemyFilter = enemyFilter
 
   #Map width and height
   width  = None
@@ -176,18 +181,18 @@ class baseAgent(CaptureAgent):
     #Food maps
     self.updateFoodMap(gameState)
 
-    Filter.addInitialGameStateInfo(self.index, gameState)
+    self.enemyFilter.addInitialGameStateInfo(self.index, gameState)
 
   def chooseAction(self, gameState):
     """
     Choose action.
     """
 
-    Filter.addNewInfo(self.index, gameState)
+    self.enemyFilter.addNewInfo(self.index, gameState)
     '''
     To get beliefState as dict of np.arrays use:
-    Filter.getBeliefStateProb() - uniform probability over possible states
-    Filter.getBeliefStateBool() - bool (True if can be in particular state, False otherwise)
+    self.enemyFilter.getBeliefStateProb() - uniform probability over possible states
+    self.enemyFilter.getBeliefStateBool() - bool (True if can be in particular state, False otherwise)
     '''
 
     stateM  = self.stateMatrix(gameState)
@@ -233,7 +238,7 @@ class baseAgent(CaptureAgent):
 
     #Opponents positions
     try:
-      baseAgent.opp_pos = Filter.getBeliefStateProb()
+      baseAgent.opp_pos = self.enemyFilter.getBeliefStateProb()
     except ZeroDivisionError:
       print "ZDE"
     
