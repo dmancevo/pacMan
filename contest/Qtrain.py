@@ -2,6 +2,7 @@ import os
 import sqlite3
 import pickle as pkl
 import numpy as np
+import pandas as pd
 from sknn.mlp import Regressor, Layer
 from sknn import ae, mlp
 from sklearn.metrics import mean_squared_error as mse
@@ -13,7 +14,7 @@ def play(n):
   Play n more games.
   """
   for _ in range(n):
-    os.system("capture.py -r Qagent2 -b Qagent2 -b -Q")
+    os.system("python capture.py -r Qagent2.py -b Qagent2.py -Q")
   
 def dbQ(Q):
   """
@@ -70,6 +71,16 @@ def fromDB():
   conn.close()
   
   return X, A, O, Rws, Qvals, targets
+  
+#Play a few games
+play(1)
+  
+#Train and test data
+X, A, O, Rws, Qvals, targets = fromDB()
+X,A,O = np.array(X), pd.get_dummies(A), pd.get_dummies(O)
+X_train, X_test, y_train, y_test = train_test_split(np.hstack((X,A,O)), np.array(targets), test_size=0.25)
+
+print X_train[0]
 
 # Q = Regressor(
 #     layers=[
