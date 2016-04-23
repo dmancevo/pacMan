@@ -200,7 +200,6 @@ class Filter(object):
         prevTeammate = self.numOfAgents - 1 if prevEnemy == 0 else prevEnemy - 1
         
         deadEnemies = []
-        print agentID, prevEnemy, prevTeammate
 
         #check if previous teammate ate an enemy
         for enemy in self.enemyTeam:
@@ -211,7 +210,6 @@ class Filter(object):
         if prevEnemy not in deadEnemies:
             if self.currentPos[prevEnemy] is None and self.prevPos[prevEnemy] is not None:
                 for agent in self.myTeam:
-                    print agent
                     #check if my agent died
                     myAgentDied = manhattanDistance(self.prevPos[agent], self.currentPos[agent]) > (0 if agent==agentID else 1)
                     if not myAgentDied and manhattanDistance(self.prevPos[prevEnemy], self.prevPos[agent]) <= (1 if agent==agentID else 2):

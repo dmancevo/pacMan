@@ -57,6 +57,7 @@ class baseAgent(CaptureAgent):
   def __init__(self, index, enemyFilter):
     CaptureAgent.__init__(self, index)
     self.enemyFilter = enemyFilter
+    self.iter = 0
 
   #Map width and height
   width  = None
@@ -230,8 +231,9 @@ class baseAgent(CaptureAgent):
       baseAgent.defense = self.index
     else:
       st = gameState.getAgentState(self.index)
-      opp_st = gameState.getAgentState(ind)
-      if opp_st.isPacman and not st.scaredTimer:
+      #opp_st = gameState.getAgentState(ind)
+      #if opp_st.isPacman and not st.scaredTimer:
+      if not st.numCarrying:
         sM += baseAgent.foodMap
       else:
         sM += baseAgent.defendFoodMap
