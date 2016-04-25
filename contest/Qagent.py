@@ -4,6 +4,7 @@ import numpy as np
 import sqlite3
 import pickle as pkl
 from Qdb import QDB
+# from sknn import mlp
 
 #################
 # Team creation #
@@ -15,7 +16,7 @@ EXPLORE = 0.3
 # 1 - learning, moves based on baseAgent2
 # 2 - learning, moves based on maxMinQ
 #
-MODE = 1
+MODE = 0
 
 def createTeam(firstIndex, secondIndex, isRed,
                first = 'Agent', second = 'Agent'):
@@ -28,7 +29,7 @@ class Agent(baseAgent):
     boundary = None
     redBoundary = None
     blueBoundary = None
-  
+
     #Direction encoding
     enc = {
         "Stop" : [0,0,0,0,1],
@@ -47,12 +48,12 @@ class Agent(baseAgent):
         }
   #Neural Net
 
-  
+
     def registerInitialState(self, gameState):
         baseAgent.registerInitialState(self, gameState)
         self.enemyFilter.addInitialGameStateInfo(self.index, gameState)
         self.computeOrder()
-        
+
         #Map boundary
         if not Agent.redBoundary:
             walls = gameState.getWalls()
@@ -64,8 +65,15 @@ class Agent(baseAgent):
 
     @staticmethod
     def Q(X, a, o):
-        #TODO replace with neural net 
-        return np.random.randn() * 0.1
+        """
+        Q function (neural net)
+        """
+        try:
+          with open("Qnet.pkl","rb") as f:
+            Qnet = pkl.load(f)
+          return Qnet.predict((X,Agent.enc[a],Agent.enc[o]))
+        except:
+          return np.random.randn() * 0.1
 
 
     @staticmethod
@@ -80,7 +88,7 @@ class Agent(baseAgent):
         for a in myActions:
             minQ = 1000
             for o in enemyActions:
-                Qval = Q(X, a, o)
+                Qval = Agent.Q(X, a, o)
                 minQ = min(minQ, Qval)
             if minQ >= maxQ:
                 maxQ = minQ
@@ -147,17 +155,17 @@ class Agent(baseAgent):
             dist, _ = self.distanceAndDirectionToPos(gameState, i, pos)
             distFromStart.append(dist)
         X = np.hstack((X, np.array(distFromStart)))
-        
+
         #distance and move along the shortest path to teammate (1 + 5)
         dist, direct = self.distanceAndDirectionToAgent(gameState, self.myOrderedTeam[0],self.myOrderedTeam[1])
         X = np.hstack((X, np.array([dist] + direct)))
-        
+
         #distance and move along the shortest path from my current agent to both enemies (1 + 5 + 1 + 5)
         dist, direct = self.distanceAndDirectionToAgent(gameState, self.myOrderedTeam[0],self.enemyOrderedTeam[0])
         X = np.hstack((X, np.array([dist] + direct)))
         dist, direct = self.distanceAndDirectionToAgent(gameState, self.myOrderedTeam[0],self.enemyOrderedTeam[1])
         X = np.hstack((X, np.array([dist] + direct)))
-        
+
         #distance and move along the shortest path to closest enemy food (1 + 5)
         dist, direct = self.closestFoodFromAgent(gameState, self.myOrderedTeam[0])
         X = np.hstack((X, np.array([dist] + direct)))
@@ -177,7 +185,7 @@ class Agent(baseAgent):
         #distance and move along the shortest path to teammate (1 + 5)
         #dist, direct = self.distanceAndDirectionToAgent(gameState, self.enemyOrderedTeam[0],self.enemyOrderedTeam[1])
         #X = np.hstack((X, np.array([dist] + direct)))
-        
+
         #move along the shortest path from next current enemy agent to my agents (5 + 5)
         _, direct = self.distanceAndDirectionToAgent(gameState, self.enemyOrderedTeam[0],self.myOrderedTeam[0])
         X = np.hstack((X, np.array(direct)))
@@ -195,7 +203,7 @@ class Agent(baseAgent):
         #distance and move along the shortest path to the boundary (1 + 5)
         dist, direct = self.closestBoundaryFromAgent(gameState, self.enemyOrderedTeam[0])
         X = np.hstack((X, np.array([dist] + direct)))
-        
+
 
         #compute best move
         legalActions = gameState.getLegalActions(self.index)
@@ -215,7 +223,7 @@ class Agent(baseAgent):
                 prob.append(1 - EXPLORE)
                 myMove = np.random.choice(np.array(legalActions), p=prob)
             else:
-                bestDir = maxMinQMove(X, legalActions, enemyLegalActions)
+                bestDir = Agent.maxMinQMove(X, legalActions, enemyLegalActions)
 
             n = len(legalActions)
             legalActions.append(bestDir)
@@ -225,11 +233,11 @@ class Agent(baseAgent):
 
             QDB.addRow(X, myMove, self.index)
         else:
-            myMove = maxMinQMove(X, legalActions, enemyLegalActions)
+            myMove = Agent.maxMinQMove(X, legalActions, enemyLegalActions)
 
         self.iter += 1
         return myMove
-    
+
 
     def computeOrder(self):
         #agents IDs in order of further moves
@@ -266,13 +274,13 @@ class Agent(baseAgent):
         for agentID in self.enemyOrderedTeam:
             self.enemyOrderedTeamPos.append(exactPos[agentID])
             self.positionByID[agentID] = exactPos[agentID]
-            
+
             numOfStates = np.sum(self.enemyBeliefState[agentID])
             if numOfStates == 0:
                 self.uncertainty.append(0.)
             else:
                 self.uncertainty.append(1./numOfStates)
-            
+
             stateList = []
             for x in xrange(Agent.w):
                 for y in xrange(Agent.h):
@@ -333,7 +341,7 @@ class Agent(baseAgent):
             fromList = [self.positionByID[fromAgent]]
         else:
             fromList = self.enemyBeliefStateAsList[fromAgent]
-        
+
         toList = []
         if fromAgent in self.myOrderedTeam:
             toList = self.food
@@ -352,13 +360,13 @@ class Agent(baseAgent):
             fromList = [self.positionByID[fromAgent]]
         else:
             fromList = self.enemyBeliefStateAsList[fromAgent]
-        
+
         toList = []
         if fromAgent in self.myOrderedTeam:
             toList = self.capsules
         else:
             toList = self.defCapsules
-        
+
         return self.closestDistanceAndMoveForLists(gameState, fromList, toList)
 
 
@@ -371,7 +379,7 @@ class Agent(baseAgent):
             fromList = [self.positionByID[fromAgent]]
         else:
             fromList = self.enemyBeliefStateAsList[fromAgent]
-        
+
         toList = []
         if fromAgent in self.myOrderedTeam:
             if self.red:
@@ -383,7 +391,7 @@ class Agent(baseAgent):
                 toList = Agent.blueBoundary
             else:
                 toList = Agent.redBoundary
-        
+
         return self.closestDistanceAndMoveForLists(gameState, fromList, toList)
 
 
@@ -414,7 +422,7 @@ class Agent(baseAgent):
         """
         fromList = []
         toList = [toPos]
-        
+
         if self.positionByID[fromAgent] is not None:
             fromList = [self.positionByID[fromAgent]]
         else:
@@ -445,10 +453,10 @@ class Agent(baseAgent):
             positions = [self.positionByID[agentID]]
         else:
             positions = self.enemyBeliefStateAsList[agentID]
-        
+
         maxValue = 0.
         for pos in positions:
             maxValue = max(maxValue, Agent.moveMap[pos[0], pos[1]])
 
         return maxValue
-     
+
