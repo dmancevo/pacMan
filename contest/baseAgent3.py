@@ -41,8 +41,6 @@ def createTeam(firstIndex, secondIndex, isRed,
   behavior is what you want for the nightly contest.
   """
   enemyFilter = Filter()
-  # The following line is an example only; feel free to change it.
-  #return [eval(first)(firstIndex), eval(second)(secondIndex)]
   return [baseAgent(firstIndex, enemyFilter), baseAgent(secondIndex, enemyFilter)]
 
 ##########
@@ -141,34 +139,22 @@ class baseAgent(CaptureAgent):
 
   def registerInitialState(self, gameState):
     """
-    This method handles the initial setup of the
-    agent to populate useful fields (such as what team
-    we're on).
-
-    A distanceCalculator instance caches the maze distances
-    between each pair of positions, so your agents can use:
-    self.distancer.getDistance(p1, p2)
-
-    IMPORTANT: This method may run for at most 15 seconds.
+    Initialization.
     """
-
-    '''
-    Make sure you do not delete the following line. If you would like to
-    use Manhattan distances instead of maze distances in order to save
-    on initialization time, please take a look at
-    CaptureAgent.registerInitialState in captureAgents.py.
-    '''
     CaptureAgent.registerInitialState(self, gameState)
-
-    '''
-    Your initialization code goes here, if you need any.
-    '''
 
     #Map width and height
     if baseAgent.width == None:
       walls        = gameState.getWalls()
       baseAgent.width  = walls.width
       baseAgent.height = walls.height
+      
+    #Blue/Red boundaries
+    baseAgent.redBoundary = [(baseAgent.width/2 - 1,i) \
+    for i in range(baseAgent.height)]
+    
+    baseAgent.blueBoundary = [(baseAgent.width/2,i) \
+    for i in range(baseAgent.height)]
 
     #Pre-compute available moves
     if baseAgent.moves.size == 0:
@@ -182,26 +168,23 @@ class baseAgent(CaptureAgent):
     #Food maps
     self.updateFoodMap(gameState)
 
+    #Enemy filter
     self.enemyFilter.addInitialGameStateInfo(self.index, gameState)
-
+    
   def chooseAction(self, gameState):
     """
     Choose action.
     """
 
+    #Update filter
     self.enemyFilter.addNewInfo(self.index, gameState)
-    '''
-    To get beliefState as dict of np.arrays use:
-    self.enemyFilter.getBeliefStateProb() - uniform probability over possible states
-    self.enemyFilter.getBeliefStateBool() - bool (True if can be in particular state, False otherwise)
-    '''
 
+    #Find best move
     stateM  = self.stateMatrix(gameState)
     bestPos = np.unravel_index(np.argmax(stateM), stateM.shape)
     bestDir = self.nextShortest(gameState, bestPos)
 
     return bestDir
-
 
   def stateMatrix(self, gameState):
     """
@@ -210,7 +193,10 @@ class baseAgent(CaptureAgent):
     """
 
     #Movement heat map
-    sM = 0.1*baseAgent.moveMap
+    if baseAgent.defense!=self.index:
+      sM = 0.1*baseAgent.moveMap
+    else:
+      sM = 0.3*baseAgent.moveMap
 
     #Food (defense/offense)
     self.updateFoodMap(gameState)
@@ -219,12 +205,20 @@ class baseAgent(CaptureAgent):
       baseAgent.defense = self.index
     else:
       st = gameState.getAgentState(self.index)
-      #opp_st = gameState.getAgentState(ind)
-      #if opp_st.isPacman and not st.scaredTimer:
-      if not st.numCarrying:
+      if not st.numCarrying and not st.isPacman:
         sM += baseAgent.foodMap
-      else:
-        sM += baseAgent.defendFoodMap
+      else: #Capture more food or take what we have back
+        posFood, distFood = self.closestFood(gameState)
+        sM[posFood] = baseAgent.foodMap[posFood]
+        
+        posBound, distBound = self.closestBoundary(gameState)
+        sM[posBound] += 0.5*st.numCarrying
+        
+    #Capsules
+    if baseAgent.defense!=self.index:
+      capsules = self.getCapsules(gameState)
+    else:
+      capsules = self.getCapsulesYouAreDefending(gameState)
 
     #Opponents positions
     try:
@@ -232,17 +226,23 @@ class baseAgent(CaptureAgent):
     except ZeroDivisionError:
       print "ZDE"
     
+    myPos = gameState.getAgentState(self.index).getPosition()
     for opp in baseAgent.opp_pos.keys():
       
-      st = gameState.getAgentState(opp)
-      if st.isPacman:
+      st = gameState.getAgentState(self.index)
+      opp_st = gameState.getAgentState(opp)
+      if opp_st.isPacman and not st.scaredTimer: #Chase if pacman and not scared
         sM += 3*baseAgent.opp_pos[opp]
-      elif baseAgent.defense!=self.index:
-        P = np.transpose(baseAgent.opp_pos[opp].nonzero())
-        lst = self.getFood(gameState).asList()
-        width, height = sM.shape
-        sM -= baseAgent.inverse_weight(self, P, lst,
-         width, height, baseAgent.oppAlpha)
+      elif opp_st.isPacman: #Run away if pacman and scared
+        sM -= 7*baseAgent.opp_pos[opp]
+        
+      #Capsules importance
+      opp_pos = gameState.getAgentState(opp).getPosition()
+      for pos in capsules:
+        dist = self.getDist(myPos, opp_pos)
+        sM[pos] += 1.0/dist
+        if baseAgent.defense!=self.index:
+          sM[pos] *= 1.5
 
     return sM
 
@@ -276,7 +276,6 @@ class baseAgent(CaptureAgent):
 
     return self.nextS(gameState, myPos, pos, actions)
 
-
   def getSuccessor(self, gameState, action):
     """
     Finds the next successor which is a grid position (location tuple).
@@ -304,6 +303,29 @@ class baseAgent(CaptureAgent):
     #Defend food map
     baseAgent.defendFoodMap  = baseAgent.heat_map(gameState, self,
        dfood, baseAgent.foodAlpha)
+       
+  def closestFood(self, gameState):
+    """
+    Get distance and position of closest food.
+    """
+    food = self.getFood(gameState).asList()
+    myPos     = gameState.getAgentState(self.index).getPosition()
+    distances = [(pos, self.getDist(myPos, pos)) for pos in food]
+    return min(distances, key= lambda x: x[1])
+       
+  def closestBoundary(self, gameState):
+    """
+    Get distance and position of closest boundary point.
+    """
+    if self.red:
+      boundary = baseAgent.redBoundary
+    else:
+      boundary = baseAgent.blueBoundary
+      
+    myPos     = gameState.getAgentState(self.index).getPosition()
+    distances = [(pos, self.getDist(myPos, pos)) for pos in boundary]
+    
+    return min(distances, key= lambda x: x[1])
        
   def getDist(self, pos1, pos2):
     """
