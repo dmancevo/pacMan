@@ -1,3 +1,5 @@
+#GROUP 1
+
 from game import Actions
 from util import manhattanDistance
 from copy import deepcopy
